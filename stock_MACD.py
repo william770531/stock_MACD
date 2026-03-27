@@ -26,6 +26,8 @@ stock_dict = {
 }
 # ==========================================
 
+print(f"DEBUG: 目前監控的股票清單為: {list(stock_dict.values())}")
+
 def get_taiwan_time():
     """獲取台灣目前的日期字串"""
     tz_tw = timezone(timedelta(hours=8))
