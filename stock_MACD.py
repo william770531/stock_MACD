@@ -4,6 +4,7 @@ import requests
 import os
 from datetime import datetime, timedelta, timezone
 
+# 讀取 GitHub Secrets
 TOKEN = os.getenv("TG_TOKEN")
 CHAT_ID = os.getenv("TG_CHAT_ID")
 F_TOKEN = os.getenv("FINMIND_TOKEN")
@@ -12,14 +13,12 @@ def get_taiwan_time():
     return datetime.now(timezone(timedelta(hours=8)))
 
 def get_net_buy_detail(sid):
-    """【終極相容版】確保上市與上櫃法人資料都能正確抓取"""
+    """抓取法人詳細籌碼"""
     cid = sid.split('.')[0]
     start = (get_taiwan_time() - timedelta(days=10)).strftime("%Y-%m-%d")
     url = f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={cid}&start_date={start}&token={F_TOKEN}"
-    
     f_buy, i_buy, total = 0, 0, 0
     last_date = "N/A"
-    
     try:
         res = requests.get(url, timeout=15).json()
         data = res.get('data', [])
@@ -29,25 +28,17 @@ def get_net_buy_detail(sid):
             ld_obj = df['date'].max()
             last_date = ld_obj.strftime('%m-%d')
             curr = df[df['date'] == ld_obj]
-            
             for _, row in curr.iterrows():
                 name = str(row.get('name', ''))
-                # 換算為張數 (買進 - 賣出) / 1000
                 net = (row.get('buy', 0) - row.get('sell', 0)) / 1000
-                
-                if "外資" in name:
-                    f_buy += net
-                elif "投信" in name:
-                    i_buy += net
-            
-            f_buy = round(f_buy)
-            i_buy = round(i_buy)
+                if "外資" in name: f_buy += net
+                elif "投信" in name: i_buy += net
+            f_buy, i_buy = round(f_buy), round(i_buy)
             total = f_buy + i_buy
-    except:
-        pass
+    except: pass
     return total, f_buy, i_buy, last_date
 
-# 監控清單
+# 監控清單與分類
 stocks = {
     "2330.TW": ("台積電", "權值"), "2337.TW": ("旺宏", "權值"), 
     "6770.TW": ("力積電", "權值"), "2408.TW": ("南亞科", "權值"), 
@@ -73,33 +64,24 @@ for sid, (sname, stype) in stocks.items():
         
         row, prev = df.iloc[-1], df.iloc[-2]
         total, f_buy, i_buy, b_date = get_net_buy_detail(sid)
-        
-        m_up = row['OSC'] > prev['OSC']
-        is_ma = row['Close'] > row['MA20']
+        m_up, is_ma = row['OSC'] > prev['OSC'], row['Close'] > row['MA20']
         
         # 建議標籤邏輯
         if stype == "權值":
-            if f_buy > 100 and m_up:
-                cmd, icon = "🟢 <b>建議跟單：外資回補</b>", "✅"
-            elif f_buy < -300:
-                cmd, icon = "🔴 <b>建議保守：外資撤出</b>", "❌"
-            else:
-                cmd, icon = "🟡 <b>維持觀望：籌碼待定</b>", "⏸️"
+            if f_buy > 100 and m_up: cmd, icon = "🟢 <b>建議跟單：外資回補</b>", "✅"
+            elif f_buy < -300: cmd, icon = "🔴 <b>建議保守：外資撤出</b>", "❌"
+            else: cmd, icon = "🟡 <b>維持觀望：籌碼待定</b>", "⏸️"
         else:
-            if i_buy > 0 and m_up:
-                cmd, icon = "🟢 <b>建議跟單：投信認養</b>", "✨"
-            elif i_buy < 0:
-                cmd, icon = "🔴 <b>建議保守：投信棄權</b>", "❌"
-            else:
-                cmd, icon = "🟡 <b>維持觀望：靜待表態</b>", "⏸️"
+            if i_buy > 0 and m_up: cmd, icon = "🟢 <b>建議跟單：投信認養</b>", "✨"
+            elif i_buy < 0: cmd, icon = "🔴 <b>建議保守：投信棄權</b>", "❌"
+            else: cmd, icon = "🟡 <b>維持觀望：靜待表態</b>", "⏸️"
 
         report.append(f"{icon} <b>{sname}</b> ({b_date})")
-        report.append(f" ├ 籌碼: {total}張 (外:{f_buy} | 投:{i_buy})")
+        # 使用格式化字串顯示正負號
+        report.append(f" ├ 籌碼: {total:+}張 (外:{f_buy:+} | 投:{i_buy:+})")
         report.append(f" └ 🚩 <b>{cmd}</b>\n")
-        
-    except Exception as e:
-        report.append(f"❌ {sname} 診斷出錯\n")
+    except:
+        report.append(f"❌ {sname} 偵測失敗\n")
 
-# 發送訊息
-final_msg = "\n".join(report)
-requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": TELEGRAM_CHAT_ID, "text": final_msg, "parse_mode": "HTML"})
+# 發送訊息 (修正變數名為 CHAT_ID)
+requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "\n".join(report), "parse_mode": "HTML"})
