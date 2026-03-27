@@ -2,43 +2,33 @@ name: Daily MACD Scanner
 
 on:
   schedule:
-    # 台灣時間早上 8:00 執行 (UTC 00:00)
     - cron: '0 0 * * *'
-  workflow_dispatch: # 允許手動點擊執行測試
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Taipei
+      # 消除 Node 20 警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-    - name: 1. 取得最新程式碼 (Checkout)
+    - name: 取得程式碼
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # 確保抓取最完整的提交紀錄，不使用過期快取
-
-    - name: 2. 安裝 Python 環境
+      
+    - name: 安裝 Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        # 暫時移除 cache: 'pip' 以排除環境快取干擾的可能性
 
-    - name: 3. 安裝必要套件
+    - name: 安裝套件
       run: |
-        python -m pip install --upgrade pip
         pip install yfinance pandas requests
 
-    - name: 4. 🔍 暴力檢查與執行 (Debug Mode)
+    - name: 執行選股與推播
       env:
         TG_TOKEN: ${{ secrets.TG_TOKEN }}
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
-      run: |
-        echo "========= [目前目錄檔案清單] ========="
-        ls -R
-        echo "========= [stock_MACD.py 真實內容] ========="
-        cat stock_MACD.py
-        echo "============================================"
-        # 執行掃描程式
-        python stock_MACD.py
+      run: python stock_MACD.py
