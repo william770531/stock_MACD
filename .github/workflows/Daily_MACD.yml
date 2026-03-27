@@ -2,27 +2,28 @@ name: Daily MACD Scanner
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    # 台灣時間 08:00 (等於 UTC 00:00)
+    # 1-5 代表週一至週五，六日不執行
+    - cron: '0 0 * * 1-5'
+  workflow_dispatch: # 允許手動執行測試
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Taipei
-      # 消除 Node 20 警告
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-    - name: 取得程式碼
+    - name: 取得最新程式碼
       uses: actions/checkout@v4
       
-    - name: 安裝 Python
+    - name: 安裝 Python 環境
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    - name: 安裝套件
+    - name: 安裝必要套件
       run: |
         pip install yfinance pandas requests
 
