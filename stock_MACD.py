@@ -13,12 +13,15 @@ def get_taiwan_time():
     return datetime.now(timezone(timedelta(hours=8)))
 
 def get_net_buy_detail(sid):
-    """抓取法人詳細籌碼"""
+    """【防彈偵測版】全面掃描所有可能的法人名稱欄位"""
     cid = sid.split('.')[0]
+    # 抓過去 10 天，確保避開連假
     start = (get_taiwan_time() - timedelta(days=10)).strftime("%Y-%m-%d")
     url = f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={cid}&start_date={start}&token={F_TOKEN}"
+    
     f_buy, i_buy, total = 0, 0, 0
     last_date = "N/A"
+    
     try:
         res = requests.get(url, timeout=15).json()
         data = res.get('data', [])
@@ -28,17 +31,28 @@ def get_net_buy_detail(sid):
             ld_obj = df['date'].max()
             last_date = ld_obj.strftime('%m-%d')
             curr = df[df['date'] == ld_obj]
+            
+            print(f"--- {sid} 原始數據偵測 ---")
             for _, row in curr.iterrows():
                 name = str(row.get('name', ''))
+                # 取得買賣差額 (單位: 張)
                 net = (row.get('buy', 0) - row.get('sell', 0)) / 1000
-                if "外資" in name: f_buy += net
-                elif "投信" in name: i_buy += net
+                print(f"欄位名稱: {name} | 計算數值: {net}")
+                
+                # 只要名稱包含關鍵字，就進行累加
+                if any(k in name for k in ["外資", "陸資", "Foreign"]):
+                    f_buy += net
+                elif any(k in name for k in ["投信", "Investment"]):
+                    i_buy += net
+            
             f_buy, i_buy = round(f_buy), round(i_buy)
             total = f_buy + i_buy
-    except: pass
+    except Exception as e:
+        print(f"錯誤: {sid} 抓取失敗 - {e}")
+        
     return total, f_buy, i_buy, last_date
 
-# 監控清單與分類
+# 監控清單
 stocks = {
     "2330.TW": ("台積電", "權值"), "2337.TW": ("旺宏", "權值"), 
     "6770.TW": ("力積電", "權值"), "2408.TW": ("南亞科", "權值"), 
@@ -77,11 +91,11 @@ for sid, (sname, stype) in stocks.items():
             else: cmd, icon = "🟡 <b>維持觀望：靜待表態</b>", "⏸️"
 
         report.append(f"{icon} <b>{sname}</b> ({b_date})")
-        # 使用格式化字串顯示正負號
-        report.append(f" ├ 籌碼: {total:+}張 (外:{f_buy:+} | 投:{i_buy:+})")
+        report.append(f" ├ 籌碼: <code>{total:+}張</code> (外:{f_buy:+} | 投:{i_buy:+})")
         report.append(f" └ 🚩 <b>{cmd}</b>\n")
     except:
         report.append(f"❌ {sname} 偵測失敗\n")
 
-# 發送訊息 (修正變數名為 CHAT_ID)
-requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "\n".join(report), "parse_mode": "HTML"})
+# 發送訊息
+final_msg = "\n".join(report)
+requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": final_msg, "parse_mode": "HTML"})
