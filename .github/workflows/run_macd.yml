@@ -14,8 +14,11 @@ jobs:
       TZ: Asia/Taipei
 
     steps:
-    - name: 取得程式碼
+    - name: 取得程式碼 (Checkout)
       uses: actions/checkout@v4
+      with:
+       ref: main  # 確保這裡是你的主分支名稱（通常是 main 或 master）
+       fetch-depth: 0 # 確保抓取完整紀錄，避免抓到舊緩存
 
     - name: 安裝 Python 環境
       uses: actions/setup-python@v5
