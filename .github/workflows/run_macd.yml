@@ -28,8 +28,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install yfinance pandas requests
 
-    - name: 執行選股掃描
-      # 如果你後續把 Token 存入 GitHub Secrets，可以這樣傳入：
-      # env:
-      #   TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    - name: 執行選股掃描與推播
+      env:
+        # 這裡就是把保險箱的東西「遞給」環境變數
+        TG_TOKEN: ${{ secrets.TG_TOKEN }}
+        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
       run: python stock_MACD.py
