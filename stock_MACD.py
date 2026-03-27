@@ -2,15 +2,21 @@ import yfinance as yf
 import pandas as pd
 import requests
 import time
+import os  # <--- 1. 務必導入這個環境變數模組
 from datetime import datetime, timedelta, timezone
 
 # ==========================================
-# 🔑 設定區
-TELEGRAM_BOT_TOKEN = "8793345742:AAFUbjHQ7xBvNBE11SbhbWpwsXrE5ZhTLGY"
-TELEGRAM_CHAT_ID = "948927297"
+# 🔑 從 GitHub Secrets 安全讀取憑證
+# os.getenv("名字") 會去抓你在 GitHub 設定的那個 Secret
+# ==========================================
+TELEGRAM_BOT_TOKEN = os.getenv("TG_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TG_CHAT_ID")
+FINMIND_TOKEN = os.getenv("FINMIND_TOKEN", "") # 如果你有設 FinMind Token 也可以這樣抓
+# ==========================================
 
-# 建議去 FinMind 官網申請免費 Token 填入，會更穩定
-FINMIND_TOKEN = "" 
+# 檢查一下有沒有抓到 (除錯用，GitHub Actions 日誌看得到)
+if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    print("❌ 錯誤：找不到 Telegram 憑證，請檢查 GitHub Secrets 設定！")
 
 stock_dict = {
     "2337.TW": "旺宏", "2408.TW": "南亞科", "2344.TW": "華邦電",
