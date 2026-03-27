@@ -2,7 +2,6 @@ import yfinance as yf
 import pandas as pd
 import requests
 import os
-import time
 from datetime import datetime, timedelta, timezone
 
 TOKEN = os.getenv("TG_TOKEN")
@@ -12,8 +11,8 @@ F_TOKEN = os.getenv("FINMIND_TOKEN")
 def get_taiwan_time():
     return datetime.now(timezone(timedelta(hours=8)))
 
-def get_net_buy(sid):
-    """【強化版】確保抓到非零籌碼"""
+def get_net_buy_detail(sid):
+    """拆解外資與投信籌碼"""
     cid = sid.split('.')[0]
     start = (get_taiwan_time() - timedelta(days=10)).strftime("%Y-%m-%d")
     url = f"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={cid}&start_date={start}&token={F_TOKEN}"
@@ -23,68 +22,71 @@ def get_net_buy(sid):
             df = pd.DataFrame(res['data']).sort_values('date', ascending=False)
             last_date = df['date'].iloc[0]
             last_d = df[df['date'] == last_date]
-            # 擴大比對範圍：包含所有法人單位
-            buy = sum(r['buy']-r['sell'] for _, r in last_d.iterrows())
-            return round(buy/1000), last_date
+            
+            f_buy = sum(r['buy']-r['sell'] for _, r in last_d.iterrows() if '外資' in r['name'])
+            i_buy = sum(r['buy']-r['sell'] for _, r in last_d.iterrows() if '投信' in r['name'])
+            total = round((f_buy + i_buy)/1000)
+            return total, round(f_buy/1000), round(i_buy/1000), last_date
     except: pass
-    return 0, "無資料"
+    return 0, 0, 0, "無資料"
 
+# 監控清單 (定義類型)
 stocks = {
-    "6823.TWO": "濾能", "2330.TW": "台積電", "2337.TW": "旺宏", 
-    "6770.TW": "力積電", "2408.TW": "南亞科", "2344.TW": "華邦電",
-    "2409.TW": "友達", "3481.TW": "群創", "8299.TWO": "群聯", 
-    "3019.TW": "亞光", "2812.TW": "台中銀"
+    "2330.TW": ("台積電", "權值"), "2337.TW": ("旺宏", "權值"), 
+    "6770.TW": ("力積電", "權值"), "2408.TW": ("南亞科", "權值"), 
+    "2344.TW": ("華邦電", "權值"), "2409.TW": ("友達", "權值"), 
+    "3481.TW": ("群創", "權值"), "2812.TW": ("台中銀", "權值"),
+    "6823.TWO": ("濾能", "小型"), "8299.TWO": ("群聯", "小型"), 
+    "3019.TW": ("亞光", "小型")
 }
 
 tw_now = get_taiwan_time()
-report = [f"📊<b>【台股強勢選股儀表板】</b>", f"🕒 時間: {tw_now.strftime('%m/%d %H:%M')}", "═" * 15]
+report = [f"📊<b>【台股全景監控儀表板】</b>", f"🕒 時間: {tw_now.strftime('%m/%d %H:%M')}", "═" * 15]
 
-for sid, sname in stocks.items():
+for sid, (sname, stype) in stocks.items():
     try:
         df = yf.download(sid, period="1y", progress=False)
         if df.empty: continue
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         
-        # --- 指標計算 ---
-        # MACD
+        # 指標計算 (MACD, MA20)
         df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
         df['EMA26'] = df['Close'].ewm(span=26, adjust=False).mean()
         df['DIF'] = df['EMA12'] - df['EMA26']
         df['OSC'] = df['DIF'] - df['DIF'].ewm(span=9, adjust=False).mean()
-        # MA & 布林通道
         df['MA20'] = df['Close'].rolling(window=20).mean()
-        df['STD'] = df['Close'].rolling(window=20).std()
-        df['Lower'] = df['MA20'] - (df['STD'] * 2) # 布林下軌
-        # 量能
-        df['V_MA5'] = df['Volume'].rolling(window=5).mean()
         
         row, prev = df.iloc[-1], df.iloc[-2]
-        buy_vol, buy_date = get_net_buy(sid)
+        total, f_buy, i_buy, b_date = get_net_buy_detail(sid)
         
-        # --- 邏輯判定 ---
-        is_macd_safe = row['OSC'] > prev['OSC'] # 負值縮短或正值增長
-        is_oversold = row['Close'] < row['Lower'] # 股價低於布林下軌 (超跌)
-        is_vol_up = row['Volume'] > df['V_MA5'].iloc[-1] * 1.5 # 成交量爆發
+        # 狀態判定
+        macd_safe = row['OSC'] > prev['OSC']
+        above_ma20 = row['Close'] > row['MA20']
         
-        # --- 💡 建議邏輯升級 ---
-        if is_macd_safe and buy_vol > 0 and row['Close'] > row['MA20']:
-            comment = "🎯 完美多頭：趨勢確立，分批進場"
-        elif is_oversold and is_macd_safe:
-            comment = "🔥 超跌反彈：觸及底線，短線機會"
-        elif is_vol_up and buy_vol > 0:
-            comment = "⚡ 異常大量：大戶進場點火，關注"
-        elif row['OSC'] < prev['OSC'] and row['Close'] < row['MA20']:
-            comment = "⚠️ 破線轉弱：避開落水狗，觀望"
-        else:
-            comment = "⏳ 盤整蓄勢：等待指標共振"
+        # --- 分類建議邏輯 ---
+        if stype == "權值":
+            focus = f"外資:{f_buy}張"
+            if f_buy > 500 and macd_safe:
+                comment = "🚀 外資回補 + 動能轉強，偏多看"
+            elif f_buy < -500:
+                comment = "📉 外資提款中，暫避風頭"
+            else:
+                comment = "⏳ 權值股看外資臉色，目前觀望"
+        else: # 中小型股
+            focus = f"投信:{i_buy}張"
+            if i_buy > 0 and macd_safe:
+                comment = "🔥 投信認養中，中小型動能優"
+            elif i_buy < 0 and not macd_safe:
+                comment = "💀 投信棄養，小心多殺多"
+            else:
+                comment = "👀 關注投信是否連續買超"
 
-        # --- 狀態圖示 ---
-        icon = "🎯" if (is_macd_safe and buy_vol > 0) else "⏸️"
-        macd_txt = "📈收斂/擴大" if row['OSC'] > prev['OSC'] else "📉轉弱"
-        
-        report.append(f"{icon} <b>{sid.split('.')[0]} {sname}</b> ({buy_date[-5:]})")
-        report.append(f" ├ 籌碼: {buy_vol}張 | 動能: {macd_txt}")
-        report.append(f" └ <b>💡 建議: {comment}</b>\n")
+        # 組合訊息
+        icon = "🎯" if (macd_safe and total > 0 and above_ma20) else "⏸️"
+        report.append(f"{icon} <b>{sid.split('.')[0]} {sname}</b> ({b_date[-5:]})")
+        report.append(f" ├ 籌碼: {total}張 (外:{f_buy} | 投:{i_buy})")
+        report.append(f" ├ 關鍵: {focus} | {comment}")
+        report.append(f" └ 趨勢: {'✅站上月線' if above_ma20 else '❌破月線'}\n")
         
     except:
         report.append(f"❌ {sname} 偵測失敗\n")
