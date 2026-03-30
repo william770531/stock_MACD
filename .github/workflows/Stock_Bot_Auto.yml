@@ -1,0 +1,31 @@
+name: Stock_Bot_Auto
+
+on:
+  schedule:
+    # 台灣週一至週五 08:05 (UTC 00:05)
+    - cron: '5 0 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Python Setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install
+        run: |
+          pip install --upgrade pip
+          pip install yfinance pandas requests
+
+      - name: Run
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python stock_MACD.py
