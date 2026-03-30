@@ -2,12 +2,12 @@ name: Daily MACD Scanner
 
 # 這裡稍微調整縮排與結構，強制讓 GitHub 重新解析
 on:
-  workflow_dispatch:
   schedule:
-    # 台灣時間週一至週五 早上 08:10 (UTC 00:10)
-    # 避開 08:00 整點的高峰期，排隊會快很多
-    - cron: '10 0 * * 1-5'
-
+    # 台灣時間 07:47 (UTC 23:47) 
+    # 稍微提前避開 8 點的高峰期
+    - cron: '47 23 * * 0-4'
+  workflow_dispatch:
+  
 jobs:
   build:
     runs-on: ubuntu-latest
