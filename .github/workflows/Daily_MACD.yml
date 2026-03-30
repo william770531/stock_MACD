@@ -1,20 +1,23 @@
 name: Daily MACD Scanner
 
+# 這裡稍微調整縮排與結構，強制讓 GitHub 重新解析
 on:
-  schedule:
-    # 台灣時間週一至週五 早上 08:05 (UTC 00:05)
-    - cron: '5 0 * * 1-5'
   workflow_dispatch:
+  schedule:
+    # 台灣時間週一至週五 早上 08:10 (UTC 00:10)
+    # 避開 08:00 整點的高峰期，排隊會快很多
+    - cron: '10 0 * * 1-5'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 固定時區環境
     env:
       TZ: Asia/Taipei
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-    - name: Checkout code
+    - name: Checkout Code
       uses: actions/checkout@v4
       
     - name: Set up Python
@@ -24,10 +27,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
         pip install yfinance pandas requests
 
-    - name: Run Scan
+    - name: Run Script
       env:
         TG_TOKEN: ${{ secrets.TG_TOKEN }}
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
