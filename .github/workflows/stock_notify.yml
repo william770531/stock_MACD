@@ -1,0 +1,35 @@
+name: 股市盤前 AI 導航推播
+
+on:
+  schedule:
+    # UTC 時間 00:00 對應台灣時間早上 08:00
+    # 1-5 代表週一 (1) 到週五 (5)
+    - cron: '0 0 * * 1-5'
+  workflow_dispatch: # 保留手動點擊執行的按鈕（方便測試）
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v3
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # 建議使用 3.10 以上版本
+
+      - name: 安裝所需套件
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas requests
+
+      - name: 執行推播腳本
+        env:
+          # 將 GitHub Secrets 引入為環境變數
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: |
+          python stock_MACD.py # 這裡請換成你實際的 Python 檔案名稱
