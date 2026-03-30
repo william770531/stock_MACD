@@ -1,45 +1,33 @@
 name: Daily MACD Scanner
 
 on:
-  schedule:
-    # 修正後的 Cron：避開整點延遲，改為台灣時間 08:05
-    # 台灣週一至週五 08:05 = UTC 週日至週四 00:05
-    # 所以這裡要設為 0-4 (代表 Sunday to Thursday)
-    - cron: '5 0 * * 0-4'
   workflow_dispatch:
-
-# 確保不會因為伺服器延遲導致重複跑兩次
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  schedule:
+    # 台灣週一至週五 08:05 (UTC 週日至週四 00:05)
+    - cron: '5 0 * * 0-4'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      TZ: Asia/Taipei
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
-    - name: 檢查程式碼
+    - name: Checkout
       uses: actions/checkout@v4
       
-    - name: 設置 Python
+    - name: Python Setup
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        cache: 'pip' # 開啟快取加速執行
 
-    - name: 安裝必要套件
+    - name: Install
       run: |
         python -m pip install --upgrade pip
-        pip install yfinance pandas requests
+        # 💡 強制安裝最新版套件
+        pip install --upgrade yfinance pandas requests
 
-    - name: 執行分析與推播
+    - name: Run
       env:
         TG_TOKEN: ${{ secrets.TG_TOKEN }}
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
-      run: python stock_MACD.py
+      # 💡 加入 -u 參數讓 Log 即時顯示
+      run: python -u stock_MACD.py
