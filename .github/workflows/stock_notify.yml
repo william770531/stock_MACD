@@ -31,4 +31,4 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
         run: |
-          python main.py
+          python stock_MACD.py
