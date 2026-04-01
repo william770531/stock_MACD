@@ -2,9 +2,7 @@ name: 股市盤前 AI 導航推播
 
 on:
   schedule:
-    # 原本是：- cron: '0 0 * * 1-5' (台灣早上8點)
-    # 修改為下行：每 5 分鐘執行一次
-    - cron: '*/5 * * * *'
+    - cron: '0 0 * * 1-5'
   workflow_dispatch: # 保留這個按鈕，讓你可以在 GitHub 網頁上手動點擊測試
 
 jobs:
