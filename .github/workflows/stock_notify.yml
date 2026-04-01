@@ -2,10 +2,9 @@ name: 股市盤前 AI 導航推播
 
 on:
   schedule:
-    # UTC 時間 00:00 對應台灣時間早上 08:00
-    # 1-5 代表週一 (1) 到週五 (5)
+    # 設定時間為 UTC 00:00 (台灣時間早上 08:00)，每週一到週五執行
     - cron: '0 0 * * 1-5'
-  workflow_dispatch: # 保留手動點擊執行的按鈕（方便測試）
+  workflow_dispatch: # 保留這個按鈕，讓你可以在 GitHub 網頁上手動點擊測試
 
 jobs:
   run-script:
@@ -13,12 +12,12 @@ jobs:
 
     steps:
       - name: 取得程式碼
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 設定 Python 環境
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10' # 建議使用 3.10 以上版本
+          python-version: '3.10'
 
       - name: 安裝所需套件
         run: |
@@ -27,9 +26,9 @@ jobs:
 
       - name: 執行推播腳本
         env:
-          # 將 GitHub Secrets 引入為環境變數
+          # 這裡會自動去抓你在 GitHub Settings 裡設定的 Secrets
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
         run: |
-          python stock_MACD.py # 這裡請換成你實際的 Python 檔案名稱
+          python main.py
