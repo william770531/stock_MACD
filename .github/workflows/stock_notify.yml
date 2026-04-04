@@ -2,8 +2,9 @@ name: 股市盤前 AI 導航推播
 
 on:
   schedule:
+    # 台灣時間 08:13 發送 (避開整點塞車)
     - cron: '13 0 * * 1-5'
-  workflow_dispatch:  # 👈 這一行絕對不能少，且要跟 schedule 對齊
+  workflow_dispatch:
 
 jobs:
   run-script:
