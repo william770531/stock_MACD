@@ -2,8 +2,8 @@ name: 股市盤前 AI 導航推播
 
 on:
   schedule:
-    # 台灣時間週一至週五 07:45 = UTC 時間週日到週四的 23:45
-    - cron: '45 23 * * 0-4'
+    - cron: '13 0 * * 1-5'
+  workflow_dispatch:  # 👈 這一行絕對不能少，且要跟 schedule 對齊
 
 jobs:
   run-script:
