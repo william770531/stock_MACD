@@ -1,11 +1,8 @@
 name: 股市盤前 AI 導航推播
 
 on:
-  schedule:
-    # 台灣時間 08:13 發送 (避開整點塞車)
-    - cron: '13 0 * * 1-5'
-  workflow_dispatch:
-
+  workflow_dispatch: # 只保留手動觸發（讓外部鬧鐘來按）
+  
 jobs:
   run-script:
     runs-on: ubuntu-latest
